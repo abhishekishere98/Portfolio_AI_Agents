@@ -1,233 +1,368 @@
-const projects = [
-  {
-    title: "AI Research Agent",
-    category: "AI Agents",
-    badge: "Featured",
-    description:
-      "A multi-step assistant that gathers source material, extracts structured notes, and produces a review-ready brief.",
-    tags: ["Agents", "RAG", "Reports"],
-    link: "#"
-  },
-  {
-    title: "QA Copilot Workflow",
-    category: "Automation",
-    badge: "Live",
-    description:
-      "Converts requirements into test scenarios, browser checks, and bug report drafts with a human approval stage.",
-    tags: ["Playwright", "Testing", "QA"],
-    link: "#"
-  },
-  {
-    title: "Lead Intelligence Dashboard",
-    category: "Dashboards",
-    badge: "Case Study",
-    description:
-      "A lightweight dashboard for tracking prospects, enrichment status, outreach notes, and next actions.",
-    tags: ["Dashboard", "CRM", "Automation"],
-    link: "#"
-  },
-  {
-    title: "Document RAG Assistant",
-    category: "AI Agents",
-    badge: "New",
-    description:
-      "Searches private knowledge, cites relevant snippets, and answers questions from curated business documents.",
-    tags: ["RAG", "Embeddings", "Search"],
-    link: "#"
-  },
-  {
-    title: "Release Notes Generator",
-    category: "Automation",
-    badge: "Tool",
-    description:
-      "Turns commits, issue updates, and QA notes into clean release summaries for product and stakeholder teams.",
-    tags: ["GitHub", "LLM", "CI/CD"],
-    link: "#"
-  },
-  {
-    title: "Operations Command Center",
-    category: "Dashboards",
-    badge: "Prototype",
-    description:
-      "A focused internal tool that centralizes recurring tasks, owners, alerts, and status reporting.",
-    tags: ["Internal Tool", "Tasks", "Reports"],
-    link: "#"
-  }
-];
-
-const agents = [
-  {
-    id: "portfolio_curator",
-    name: "Portfolio Curator",
-    short: "Turns rough experience into portfolio sections.",
-    description:
-      "Creates a sharp positioning statement, project summary, and proof points for your portfolio."
-  },
-  {
-    id: "project_case_study",
-    name: "Project Case Study Agent",
-    short: "Writes case studies from messy project notes.",
-    description:
-      "Structures a project into problem, solution, architecture, tools, impact, and next improvements."
-  },
-  {
-    id: "qa_strategy",
-    name: "QA Strategy Agent",
-    short: "Designs test strategy and risk coverage.",
-    description:
-      "Builds test plans, acceptance coverage, edge cases, automation scope, and release quality gates."
-  },
-  {
-    id: "automation_architect",
-    name: "Automation Architect",
-    short: "Plans browser, API, and workflow automation.",
-    description:
-      "Recommends automation flows, tools, selectors, integrations, and CI execution strategy."
-  },
-  {
-    id: "rag_planner",
-    name: "RAG Planner",
-    short: "Designs document assistant architecture.",
-    description:
-      "Maps ingestion, chunking, embeddings, retrieval, reranking, citations, and evaluation."
-  },
-  {
-    id: "outreach_writer",
-    name: "Outreach Writer",
-    short: "Creates concise LinkedIn and email pitches.",
-    description:
-      "Turns your agent builds into client-facing outreach messages and portfolio captions."
-  }
-];
+let agents = [];
+let groupedAgents = [];
+const executionState = {
+  isRunning: false
+};
 
 const nav = document.querySelector("[data-nav]");
 const menu = document.querySelector("[data-menu]");
 const menuButton = document.querySelector("[data-menu-button]");
-const projectsGrid = document.querySelector("[data-projects]");
-const chips = [...document.querySelectorAll("[data-filter]")];
-const calendar = document.querySelector("[data-calendar]");
 const agentList = document.querySelector("[data-agent-list]");
 const agentName = document.querySelector("[data-agent-name]");
 const agentDescription = document.querySelector("[data-agent-description]");
 const agentPrompt = document.querySelector("[data-agent-prompt]");
 const agentOutput = document.querySelector("[data-agent-output]");
 const agentStatus = document.querySelector("[data-agent-status]");
+const workflowRunningNotice = document.querySelector("[data-workflow-running]");
+const copyJsonButton = document.querySelector("[data-copy-json]");
+const downloadExcelLink = document.querySelector("[data-download-excel]");
 const agentProviderInput = document.querySelector("[data-agent-provider]");
 const agentCloudModelInput = document.querySelector("[data-agent-cloud-model]");
-const agentEncryptedKeyInput = document.querySelector("[data-agent-encrypted-key]");
+const prdControls = document.querySelector("[data-prd-controls]");
 const runAgentButton = document.querySelector("[data-run-agent]");
 const prdTextInput = document.querySelector("[data-prd-text]");
 const prdFileInput = document.querySelector("[data-prd-file]");
-const prdFrameworkInput = document.querySelector("[data-prd-framework]");
-const prdAgentsInput = document.querySelector("[data-prd-agents]");
-const prdUseLlmInput = document.querySelector("[data-prd-use-llm]");
-const prdStatus = document.querySelector("[data-prd-status]");
-const prdOutput = document.querySelector("[data-prd-output]");
-const runPrdPipelineButton = document.querySelector("[data-run-prd-pipeline]");
 let selectedAgent = agents[0];
+let runtimeCloudModels = [];
+let runtimeProviderOptions = {};
+let latestJsonOutput = "";
 
-const renderProjects = (filter = "All") => {
-  const visible = filter === "All" ? projects : projects.filter((project) => project.category === filter);
+const getAgentCapabilities = (agent) => {
+  if (!agent || typeof agent !== "object") {
+    return {};
+  }
+  const capabilities = agent.capabilities && typeof agent.capabilities === "object" ? agent.capabilities : {};
+  // Backward compatibility: tolerate flat `supportsExcelExport` shape if present.
+  if (typeof agent.supportsExcelExport === "boolean" && capabilities.supportsExcelExport === undefined) {
+    return {
+      ...capabilities,
+      supportsExcelExport: agent.supportsExcelExport
+    };
+  }
+  return capabilities;
+};
+const supportsExcelExport = (agent) => {
+  if (!agent || agent.id !== "prd_pipeline") {
+    return false;
+  }
+  const rawValue = getAgentCapabilities(agent).supportsExcelExport;
+  if (typeof rawValue === "boolean") {
+    return rawValue;
+  }
+  if (typeof rawValue === "string") {
+    return rawValue.trim().toLowerCase() === "true";
+  }
+  return false;
+};
+const isPrdPipelineAgent = () => selectedAgent?.id === "prd_pipeline";
 
-  projectsGrid.innerHTML = visible
-    .map(
-      (project) => `
-        <article class="project-card">
-          <div class="project-card__top">
-            <span class="project-card__cat mono">${project.category}</span>
-            <span class="project-card__badge">${project.badge}</span>
-          </div>
-          <h3>${project.title}</h3>
-          <p>${project.description}</p>
-          <ul>
-            ${project.tags.map((tag) => `<li>${tag}</li>`).join("")}
-          </ul>
-          <a class="project-card__link" href="${project.link}">View project</a>
-        </article>
-      `
-    )
-    .join("");
+const clearAgentOutputState = () => {
+  latestJsonOutput = "";
+  agentOutput.textContent = "Start the agent server, then run an agent here.";
+  agentStatus.textContent = "Cloud mode / Gemini";
+  hideExcelDownload();
 };
 
-const renderCalendar = () => {
-  const cells = Array.from({ length: 182 }, (_, index) => {
-    const level = (index * 7 + index % 5) % 11;
-    const className = level > 8 ? "level-4" : level > 6 ? "level-3" : level > 3 ? "level-2" : level > 1 ? "level-1" : "";
-    return `<span class="${className}" title="Activity level ${className || "0"}"></span>`;
-  });
+// Each agent switch starts from a clean slate to avoid stale workflow context.
+const resetInputsForAgentSwitch = () => {
+  if (agentPrompt) {
+    agentPrompt.value = "";
+  }
+  if (prdTextInput) {
+    prdTextInput.value = "";
+  }
+  if (prdFileInput) {
+    prdFileInput.value = "";
+  }
+  clearAgentOutputState();
+};
 
-  calendar.innerHTML = cells.join("");
+const updateExecutionLockUi = () => {
+  const isRunning = executionState.isRunning;
+  if (runAgentButton) {
+    runAgentButton.disabled = isRunning;
+  }
+  if (agentPrompt) {
+    agentPrompt.disabled = isRunning;
+  }
+  if (prdTextInput) {
+    prdTextInput.disabled = isRunning;
+  }
+  if (prdFileInput) {
+    prdFileInput.disabled = isRunning;
+  }
+  if (agentProviderInput) {
+    agentProviderInput.disabled = isRunning;
+  }
+  if (agentCloudModelInput) {
+    agentCloudModelInput.disabled = isRunning || agentProviderInput?.value !== "cloud";
+  }
+  if (workflowRunningNotice) {
+    workflowRunningNotice.hidden = !isRunning;
+  }
+};
+
+const hideExcelDownload = () => {
+  if (!downloadExcelLink) {
+    return;
+  }
+  downloadExcelLink.hidden = true;
+  downloadExcelLink.classList.remove("is-disabled");
+  downloadExcelLink.removeAttribute("href");
+  downloadExcelLink.removeAttribute("download");
+};
+
+const showExcelDownloadPending = () => {
+  if (!downloadExcelLink) {
+    return;
+  }
+  downloadExcelLink.hidden = false;
+  downloadExcelLink.classList.add("is-disabled");
+  downloadExcelLink.removeAttribute("href");
+  downloadExcelLink.removeAttribute("download");
+};
+
+const updateExcelDownloadLink = (payload) => {
+  if (!downloadExcelLink) {
+    return;
+  }
+  if (!isPrdPipelineAgent()) {
+    hideExcelDownload();
+    return;
+  }
+  const excel = payload?.artifacts?.excel;
+  if (!supportsExcelExport(selectedAgent) || !excel?.download_url) {
+    hideExcelDownload();
+    return;
+  }
+  const filename = typeof excel.filename === "string" && excel.filename.trim() ? excel.filename : "PRD_PRD_Analysis.xlsx";
+  downloadExcelLink.href = `http://localhost:8787${excel.download_url}`;
+  downloadExcelLink.download = filename;
+  downloadExcelLink.classList.remove("is-disabled");
+  downloadExcelLink.hidden = false;
 };
 
 const renderAgents = () => {
-  agentList.innerHTML = agents
+  agentList.innerHTML = groupedAgents
     .map(
-      (agent) => `
-        <button class="agent-tab ${agent.id === selectedAgent.id ? "is-active" : ""}" type="button" data-agent-id="${agent.id}">
-          <strong>${agent.name}</strong>
-          <span>${agent.short}</span>
-        </button>
+      (group) => `
+        <section class="agent-group" data-agent-group="${group.id}">
+          <h3 class="agent-group__title">${group.name}</h3>
+          <div class="agent-group__items">
+            ${(group.agents || [])
+              .map(
+                (agent) => `
+                  <button
+                    class="agent-tab ${agent.id === selectedAgent?.id ? "is-active" : ""} ${executionState.isRunning ? "is-running" : ""}"
+                    type="button"
+                    data-agent-id="${agent.id}"
+                    ${executionState.isRunning ? "disabled" : ""}
+                  >
+                    <strong>${agent.icon ? `${agent.icon} ` : ""}${agent.name}</strong>
+                    <span>${executionState.isRunning ? "Workflow Running" : agent.short || ""}</span>
+                  </button>
+                `
+              )
+              .join("")}
+          </div>
+        </section>
       `
     )
     .join("");
 
-  agentName.textContent = selectedAgent.name;
-  agentDescription.textContent = selectedAgent.description;
+  if (!selectedAgent && agents.length) {
+    selectedAgent = agents[0];
+  }
+  agentName.textContent = selectedAgent?.name || "No agent available";
+  agentDescription.textContent = selectedAgent?.description || "";
+  if (prdControls) {
+    prdControls.hidden = !isPrdPipelineAgent();
+  }
+  if (agentPrompt) {
+    agentPrompt.closest("label").hidden = isPrdPipelineAgent();
+  }
+  if (supportsExcelExport(selectedAgent) && isPrdPipelineAgent() && !downloadExcelLink?.getAttribute("href")) {
+    showExcelDownloadPending();
+  } else if (!supportsExcelExport(selectedAgent)) {
+    hideExcelDownload();
+  }
+  updateExecutionLockUi();
+};
+
+const renderCloudModelOptions = () => {
+  if (!agentCloudModelInput) {
+    return;
+  }
+  const fallbackModels = [
+    { id: "gemini-1.5-flash", name: "gemini-1.5-flash" },
+    { id: "gemini-1.5-pro", name: "gemini-1.5-pro" }
+  ];
+  const options = runtimeCloudModels.length ? runtimeCloudModels : fallbackModels;
+  agentCloudModelInput.innerHTML = options
+    .map((model, index) => `<option value="${model.id}" ${index === 0 ? "selected" : ""}>${model.name}</option>`)
+    .join("");
+};
+
+const loadRuntimeOptions = async () => {
+  try {
+    const response = await fetch("http://localhost:8787/api/runtime/options");
+    if (!response.ok) {
+      throw new Error("runtime options unavailable");
+    }
+    const data = await response.json();
+    runtimeProviderOptions = data?.providers || {};
+    runtimeCloudModels = data?.providers?.cloud?.models || [];
+  } catch (_error) {
+    runtimeProviderOptions = {};
+    runtimeCloudModels = [];
+  }
+  renderCloudModelOptions();
+  updateAgentProviderUi();
+};
+
+const loadAgents = async () => {
+  try {
+    const response = await fetch("http://localhost:8787/api/agents");
+    if (!response.ok) {
+      throw new Error("agent list unavailable");
+    }
+    const data = await response.json();
+    groupedAgents = Array.isArray(data?.grouped_agents) ? data.grouped_agents : [];
+    agents = groupedAgents.flatMap((group) => group?.agents || []);
+  } catch (_error) {
+    groupedAgents = [];
+    agents = [];
+  }
+
+  selectedAgent = agents[0] || null;
+  renderAgents();
+};
+
+const formatAgentOutput = (payload) => {
+  if (typeof payload?.output === "string" && payload.output.trim()) {
+    return payload.output;
+  }
+  if (typeof payload?.result === "string" && payload.result.trim()) {
+    return payload.result;
+  }
+  if (payload && typeof payload === "object") {
+    return JSON.stringify(payload, null, 2);
+  }
+  return "No output was returned by the server.";
+};
+
+const normalizeAgentError = (payload, status) => {
+  if (payload?.error?.code && payload?.error?.message) {
+    return `${payload.error.code}: ${payload.error.message}`;
+  }
+  if (typeof payload?.error === "string") {
+    return payload.error;
+  }
+  if (typeof payload?.message === "string" && payload.message.trim()) {
+    return payload.message;
+  }
+  return `Agent request failed with status ${status}`;
 };
 
 const runAgent = async () => {
-  const prompt = agentPrompt.value.trim();
-  const provider = agentProviderInput?.value || "local";
+  if (executionState.isRunning) {
+    return;
+  }
+  if (!selectedAgent) {
+    agentStatus.textContent = "No agent available";
+    return;
+  }
+  const prompt = isPrdPipelineAgent() ? "run prd pipeline" : agentPrompt.value.trim();
+  const provider = agentProviderInput?.value || "cloud";
   const cloudModel = agentCloudModelInput?.value || "gemini-1.5-flash";
-  const encryptedCloudApiKey = agentEncryptedKeyInput?.value?.trim() || "";
-  if (!prompt) {
+  if (!prompt && !isPrdPipelineAgent()) {
     agentOutput.textContent = "Give the agent a request first.";
     return;
   }
 
-  runAgentButton.disabled = true;
+  executionState.isRunning = true;
+  renderAgents();
   agentStatus.textContent = "Running";
   agentOutput.textContent = "Thinking...";
+  latestJsonOutput = "";
+  hideExcelDownload();
 
   try {
     const response = await fetch("http://localhost:8787/api/agents/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        agent: selectedAgent.id,
-        input: prompt,
-        provider,
-        cloud_vendor: provider === "cloud" ? "gemini" : undefined,
-        cloud_model: provider === "cloud" ? cloudModel : undefined,
-        encrypted_cloud_api_key: provider === "cloud" && encryptedCloudApiKey ? encryptedCloudApiKey : undefined
-      })
+      body: JSON.stringify(await buildRunPayload(prompt, provider, cloudModel))
     });
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(`Agent server returned ${response.status}`);
+      throw new Error(normalizeAgentError(data, response.status));
+    }
+    if (data?.error) {
+      throw new Error(normalizeAgentError(data, response.status));
     }
 
-    const data = await response.json();
-    agentStatus.textContent = data.model || "Complete";
-    agentOutput.textContent = data.output;
+    agentStatus.textContent = data.model || data.status || "Complete";
+    latestJsonOutput = JSON.stringify(data, null, 2);
+    agentOutput.textContent = formatAgentOutput(data);
+    updateExcelDownloadLink(data);
   } catch (error) {
-    agentStatus.textContent = "Server offline";
-    agentOutput.textContent =
-      "Could not reach the local agent server. Run this in the project folder:\n\npython agent_server.py\n\nThen make sure Ollama is running if you want real open-source model output.";
+    if (error instanceof Error && error.message.includes("Provide PRD text")) {
+      agentStatus.textContent = "Input required";
+      agentOutput.textContent = error.message;
+    } else if (error instanceof Error) {
+      agentStatus.textContent = "Request failed";
+      agentOutput.textContent = error.message;
+    } else {
+      agentStatus.textContent = "Server offline";
+      agentOutput.textContent =
+        "Could not reach the local agent server. Run this in the project folder:\n\npython agent_server.py\n\nThen make sure Ollama is running if you want real open-source model output.";
+    }
+    hideExcelDownload();
   } finally {
-    runAgentButton.disabled = false;
+    executionState.isRunning = false;
+    renderAgents();
+  }
+};
+
+const copyJsonOutput = async () => {
+  if (!latestJsonOutput.trim()) {
+    agentStatus.textContent = "No JSON to copy";
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(latestJsonOutput);
+    const previous = agentStatus.textContent;
+    agentStatus.textContent = "JSON copied";
+    window.setTimeout(() => {
+      agentStatus.textContent = previous;
+    }, 1200);
+  } catch (_error) {
+    agentStatus.textContent = "Copy failed";
   }
 };
 
 const updateAgentProviderUi = () => {
-  if (!agentProviderInput || !agentCloudModelInput || !agentEncryptedKeyInput) {
+  if (!agentProviderInput || !agentCloudModelInput) {
     return;
   }
+  const providers = runtimeProviderOptions || {};
+  const providerPriority = ["cloud", "openai", "gemini", "grok"];
+  const options = providerPriority
+    .map((providerId) => providers[providerId])
+    .filter((provider) => provider?.enabled !== false);
+
+  agentProviderInput.innerHTML = options
+    .map((provider) => `<option value="${provider.id}">${provider.label || provider.id}</option>`)
+    .join("");
+  if (!agentProviderInput.value && options.length) {
+    agentProviderInput.value = options[0].id;
+  }
+
   const isCloud = agentProviderInput.value === "cloud";
   agentCloudModelInput.disabled = !isCloud;
-  agentEncryptedKeyInput.disabled = !isCloud;
   if (!isCloud) {
-    agentStatus.textContent = "Local mode / Ollama";
+    agentStatus.textContent = "Provider unavailable";
     return;
   }
   agentStatus.textContent = "Cloud mode / Gemini";
@@ -250,76 +385,35 @@ const readFileAsBase64 = (file) =>
     reader.readAsDataURL(file);
   });
 
-const normalizePipelineError = (payload, status) => {
-  if (payload?.error?.code && payload?.error?.message) {
-    return `${payload.error.code}: ${payload.error.message}`;
-  }
-  if (typeof payload?.error === "string") {
-    return payload.error;
-  }
-  return `PRD pipeline request failed with status ${status}`;
-};
-
-const getSelectedPrdAgents = () => {
-  if (!prdAgentsInput) {
-    return [];
-  }
-  return [...prdAgentsInput.options].filter((option) => option.selected).map((option) => option.value);
-};
-
-const runPrdPipeline = async () => {
-  if (!prdTextInput || !prdFileInput || !prdFrameworkInput || !prdUseLlmInput || !prdStatus || !prdOutput || !runPrdPipelineButton) {
-    return;
+const buildRunPayload = async (prompt, provider, cloudModel) => {
+  const executionProvider = provider === "local" ? "local" : "cloud";
+  const payload = {
+    agent: selectedAgent.id,
+    input: prompt,
+    provider: executionProvider,
+    cloud_vendor: executionProvider === "cloud" ? provider : undefined,
+    cloud_model: executionProvider === "cloud" ? cloudModel : undefined
+  };
+  if (!isPrdPipelineAgent()) {
+    return payload;
   }
 
-  const prdText = prdTextInput.value.trim();
-  const selectedFile = prdFileInput.files?.[0] || null;
+  const prdText = prdTextInput?.value?.trim() || "";
+  const selectedFile = prdFileInput?.files?.[0] || null;
   if (!prdText && !selectedFile) {
-    prdStatus.textContent = "Input required";
-    prdOutput.textContent = "Provide PRD text or upload a supported file first.";
-    return;
+    throw new Error("Provide PRD text or upload a supported file first.");
   }
 
-  runPrdPipelineButton.disabled = true;
-  prdStatus.textContent = "Running";
-  prdOutput.textContent = "Processing PRD...";
-
-  try {
-    const body = {
-      automation_framework: prdFrameworkInput.value || "playwright",
-      use_llm: Boolean(prdUseLlmInput.checked),
-      selected_agents: getSelectedPrdAgents()
+  if (prdText) {
+    payload.prd_text = prdText;
+  } else if (selectedFile) {
+    const contentBase64 = await readFileAsBase64(selectedFile);
+    payload.uploaded_file = {
+      filename: selectedFile.name,
+      content_base64: contentBase64
     };
-
-    if (prdText) {
-      body.prd_text = prdText;
-    } else if (selectedFile) {
-      const contentBase64 = await readFileAsBase64(selectedFile);
-      body.uploaded_file = {
-        filename: selectedFile.name,
-        content_base64: contentBase64
-      };
-    }
-
-    const response = await fetch("http://localhost:8787/api/prd/pipeline", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(normalizePipelineError(data, response.status));
-    }
-
-    prdStatus.textContent = data.status || "Complete";
-    prdOutput.textContent = JSON.stringify(data, null, 2);
-  } catch (error) {
-    prdStatus.textContent = "Failed";
-    prdOutput.textContent = error instanceof Error ? error.message : "Unknown PRD pipeline error";
-  } finally {
-    runPrdPipelineButton.disabled = false;
   }
+  return payload;
 };
 
 window.addEventListener(
@@ -342,18 +436,14 @@ menu.addEventListener("click", (event) => {
   }
 });
 
-chips.forEach((chip) => {
-  chip.addEventListener("click", () => {
-    chips.forEach((item) => item.classList.remove("chip--active"));
-    chip.classList.add("chip--active");
-    renderProjects(chip.dataset.filter);
-  });
-});
-
 agentList.addEventListener("click", (event) => {
+  if (executionState.isRunning) {
+    return;
+  }
   const button = event.target.closest("[data-agent-id]");
   if (!button) return;
-  selectedAgent = agents.find((agent) => agent.id === button.dataset.agentId) || agents[0];
+  selectedAgent = agents.find((agent) => agent.id === button.dataset.agentId) || agents[0] || null;
+  resetInputsForAgentSwitch();
   renderAgents();
 });
 
@@ -361,12 +451,10 @@ runAgentButton.addEventListener("click", runAgent);
 if (agentProviderInput) {
   agentProviderInput.addEventListener("change", updateAgentProviderUi);
 }
-if (runPrdPipelineButton) {
-  runPrdPipelineButton.addEventListener("click", runPrdPipeline);
+if (copyJsonButton) {
+  copyJsonButton.addEventListener("click", copyJsonOutput);
 }
 
 document.querySelector("[data-year]").textContent = new Date().getFullYear();
-renderAgents();
-renderProjects();
-renderCalendar();
-updateAgentProviderUi();
+loadAgents();
+loadRuntimeOptions();

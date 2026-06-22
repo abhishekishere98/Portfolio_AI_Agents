@@ -1,32 +1,185 @@
 {
-  "portfolio_curator": {
-    "name": "Portfolio Curator",
-    "role": "Position the user's experience as a credible AI automation portfolio.",
-    "prompt": "You are a senior portfolio strategist for AI automation engineers. Turn the user's rough notes into a crisp portfolio section. Return: 1) headline, 2) positioning paragraph, 3) 5 proof bullets, 4) one suggested project card."
+  "categories": [
+    {
+      "id": "requirements",
+      "name": "Requirements"
+    },
+    {
+      "id": "testing",
+      "name": "Testing"
+    },
+    {
+      "id": "quality",
+      "name": "Quality"
+    },
+    {
+      "id": "automation",
+      "name": "Automation"
+    }
+  ],
+  "providers": {
+    "local": {
+      "id": "local",
+      "label": "Local (Ollama)",
+      "enabled": false
+    },
+    "cloud": {
+      "id": "cloud",
+      "label": "Cloud",
+      "enabled": true
+    },
+    "openai": {
+      "id": "openai",
+      "label": "OpenAI",
+      "enabled": false
+    },
+    "grok": {
+      "id": "grok",
+      "label": "Grok",
+      "enabled": false
+    }
   },
-  "project_case_study": {
-    "name": "Project Case Study Agent",
-    "role": "Convert project notes into a clean technical case study.",
-    "prompt": "You are a technical case study writer. Convert the user's project notes into: Problem, Users, Architecture, Agent workflow, Tools, Results, Risks, and Next iteration. Keep it specific and portfolio-ready."
-  },
-  "qa_strategy": {
-    "name": "QA Strategy Agent",
-    "role": "Design risk-based QA strategy for AI and web applications.",
-    "prompt": "You are a principal QA architect. Create a practical test strategy from the user's product description. Include scope, risk areas, test cases, automation candidates, data needs, non-functional checks, and release gates."
-  },
-  "automation_architect": {
-    "name": "Automation Architect",
-    "role": "Plan reliable browser, API, and workflow automation.",
-    "prompt": "You are an automation architect. Recommend a robust automation design for the user's workflow. Include tools, architecture, selectors/API strategy, failure handling, observability, CI/CD, and a staged build plan."
-  },
-  "rag_planner": {
-    "name": "RAG Planner",
-    "role": "Plan retrieval-augmented generation assistants.",
-    "prompt": "You are a RAG systems designer. Given the user's document assistant idea, propose ingestion, chunking, metadata, embeddings, vector store, retrieval, reranking, citation format, evaluation, and hosting."
-  },
-  "outreach_writer": {
-    "name": "Outreach Writer",
-    "role": "Write concise outreach for AI automation services.",
-    "prompt": "You are a concise B2B outreach writer. Turn the user's offer or project into: 1 LinkedIn post, 1 cold DM, 1 email, and 3 portfolio captions. Keep it natural and specific."
-  }
+  "agents": [
+    {
+      "id": "prd_analyzer",
+      "name": "PRD Analyzer",
+      "short": "Analyzes PRD inputs into structured requirements.",
+      "description": "Reviews product requirement text and returns business goals, personas, and requirement-level structure.",
+      "category": "requirements",
+      "enabled": true,
+      "executionProvider": "cloud",
+      "icon": "📘",
+      "role": "Analyze software PRDs and extract implementation-ready requirement structure.",
+      "prompt": "You are a senior product requirements analyst. Analyze the user's PRD and return: product goal, target personas, key requirements, dependencies, and assumptions in clear JSON-like structure with concise bullet points."
+    },
+    {
+      "id": "requirements_gap_analyzer",
+      "name": "Requirements Gap Analyzer",
+      "short": "Finds missing or ambiguous requirements.",
+      "description": "Identifies missing requirement details, edge-case gaps, and unclear acceptance conditions.",
+      "category": "requirements",
+      "enabled": true,
+      "executionProvider": "cloud",
+      "icon": "🔍",
+      "supportsExcelExport": false,
+      "role": "Identify requirement gaps and ambiguity from PRD text.",
+      "prompt": "You are a senior QA requirement reviewer. Inspect the provided requirements and return missing requirements, ambiguous requirements, missing acceptance criteria, and testability concerns with severity."
+    },
+    {
+      "id": "test_case_generator",
+      "name": "Test Case Generator",
+      "short": "Creates structured test cases from requirements.",
+      "description": "Generates practical positive/negative/boundary tests mapped to acceptance criteria.",
+      "category": "testing",
+      "enabled": true,
+      "executionProvider": "cloud",
+      "icon": "🧪",
+      "supportsExcelExport": false,
+      "role": "Generate test cases from requirements.",
+      "prompt": "You are a software test designer. Generate concise, executable test cases from the user's requirements, including title, priority, preconditions, steps, expected result, and traceability note."
+    },
+    {
+      "id": "acceptance_criteria_generator",
+      "name": "Acceptance Criteria Generator",
+      "short": "Builds measurable acceptance criteria.",
+      "description": "Produces Given/When/Then acceptance criteria for features and stories.",
+      "category": "testing",
+      "enabled": true,
+      "executionProvider": "cloud",
+      "icon": "✅",
+      "supportsExcelExport": false,
+      "role": "Write measurable acceptance criteria.",
+      "prompt": "You are a product quality specialist. Generate measurable Given/When/Then acceptance criteria from the user's feature description. Keep it deterministic, testable, and implementation-neutral."
+    },
+    {
+      "id": "api_test_designer",
+      "name": "API Test Designer",
+      "short": "Designs API tests and contract checks.",
+      "description": "Produces API scenario coverage including status, schema, and error-path validation.",
+      "category": "testing",
+      "enabled": true,
+      "executionProvider": "cloud",
+      "icon": "🔌",
+      "supportsExcelExport": false,
+      "role": "Design API test coverage from endpoint behavior.",
+      "prompt": "You are an API QA engineer. Create API test scenarios covering happy path, validation errors, authorization, idempotency, and contract/schema checks for the described endpoints."
+    },
+    {
+      "id": "test_data_generator",
+      "name": "Test Data Generator",
+      "short": "Generates realistic positive and edge test data.",
+      "description": "Returns sample datasets for core, edge, and invalid test paths.",
+      "category": "testing",
+      "enabled": true,
+      "executionProvider": "cloud",
+      "icon": "🧬",
+      "supportsExcelExport": false,
+      "role": "Generate structured test data sets.",
+      "prompt": "You are a QA data engineer. Generate representative test data for positive, boundary, and negative scenarios based on the user's requirements."
+    },
+    {
+      "id": "bug_report_analyzer",
+      "name": "Bug Report Analyzer",
+      "short": "Normalizes and triages bug reports.",
+      "description": "Converts raw bug notes into reproducible bug tickets with severity and likely impact.",
+      "category": "quality",
+      "enabled": true,
+      "executionProvider": "cloud",
+      "icon": "🐞",
+      "supportsExcelExport": false,
+      "role": "Analyze bug reports for reproducibility and impact.",
+      "prompt": "You are a senior triage engineer. Convert the user's bug report into a clean bug ticket: summary, environment, steps, expected, actual, severity, impact, and likely root-cause area."
+    },
+    {
+      "id": "coverage_analyzer",
+      "name": "Coverage Analyzer",
+      "short": "Evaluates test coverage completeness and risk gaps.",
+      "description": "Assesses requirement, API, and workflow coverage and highlights missing risk-based tests.",
+      "category": "quality",
+      "enabled": true,
+      "executionProvider": "cloud",
+      "icon": "📊",
+      "supportsExcelExport": false,
+      "role": "Assess coverage gaps and recommend high-value additions.",
+      "prompt": "You are a test coverage analyst. Evaluate the provided requirements and tests, estimate coverage confidence by risk area, and list missing high-priority scenarios."
+    },
+    {
+      "id": "automation_design_agent",
+      "name": "Automation Design Agent",
+      "short": "Designs maintainable automation architecture.",
+      "description": "Recommends tooling, framework layout, CI integration, and reliability controls.",
+      "category": "automation",
+      "enabled": true,
+      "executionProvider": "cloud",
+      "icon": "🏗️",
+      "supportsExcelExport": false,
+      "role": "Design an automation framework for QA workflows.",
+      "prompt": "You are an automation architect. Propose a maintainable test automation framework including project structure, abstraction layers, execution strategy, reporting, and CI integration."
+    },
+    {
+      "id": "playwright_generator",
+      "name": "Playwright Generator",
+      "short": "Builds Playwright-ready test implementation plans.",
+      "description": "Produces practical Playwright suite structure, selectors, and execution notes from requirements.",
+      "category": "automation",
+      "enabled": true,
+      "executionProvider": "cloud",
+      "icon": "🎭",
+      "supportsExcelExport": false,
+      "role": "Generate practical Playwright automation plans.",
+      "prompt": "You are a Playwright automation engineer. Generate an implementation-ready Playwright test plan with suite grouping, selectors strategy, fixtures, and CI execution notes."
+    },
+    {
+      "id": "prd_pipeline",
+      "name": "PRD Pipeline",
+      "short": "Runs the full PRD analysis and QA workflow.",
+      "description": "Processes PRD text/files and runs analyst, reviewer, test design, and automation design stages.",
+      "category": "requirements",
+      "enabled": true,
+      "executionProvider": "cloud",
+      "icon": "🧭",
+      "supportsExcelExport": true,
+      "is_pipeline": true
+    }
+  ]
 }

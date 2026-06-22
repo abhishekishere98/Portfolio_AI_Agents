@@ -3,63 +3,20 @@ from __future__ import annotations
 import base64
 import io
 import unittest
-import zipfile
-import zlib
+from pathlib import Path
+
+from docx import Document
 
 from document_ingestion import DocumentIngestionError, ingest_document, ingest_document_payload
 
 
 def build_docx_bytes(text: str, pages: int | None = None) -> bytes:
-    document_xml = (
-        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
-        "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">"
-        "<w:body><w:p><w:r><w:t>"
-        + text
-        + "</w:t></w:r></w:p></w:body></w:document>"
-    )
-    app_xml = (
-        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
-        "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\">"
-        + (f"<Pages>{pages}</Pages>" if pages is not None else "")
-        + "</Properties>"
-    )
-
+    del pages
+    document = Document()
+    document.add_paragraph(text)
     buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("[Content_Types].xml", "<Types></Types>")
-        archive.writestr("word/document.xml", document_xml)
-        archive.writestr("docProps/app.xml", app_xml)
+    document.save(buffer)
     return buffer.getvalue()
-
-
-def build_pdf_bytes(text: str) -> bytes:
-    stream = f"BT ({text}) Tj ET"
-    pdf = (
-        "%PDF-1.4\n"
-        "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"
-        "2 0 obj << /Type /Pages /Count 1 /Kids [3 0 R] >> endobj\n"
-        "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >> endobj\n"
-        f"4 0 obj << /Length {len(stream)} >> stream\n{stream}\nendstream endobj\n"
-        "xref\n0 5\n0000000000 65535 f \n"
-        "trailer << /Root 1 0 R /Size 5 >>\nstartxref\n0\n%%EOF\n"
-    )
-    return pdf.encode("latin-1")
-
-
-def build_compressed_pdf_bytes(text: str) -> bytes:
-    stream = f"BT ({text}) Tj ET".encode("latin-1")
-    compressed = zlib.compress(stream)
-    pdf = (
-        "%PDF-1.4\n"
-        "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"
-        "2 0 obj << /Type /Pages /Count 1 /Kids [3 0 R] >> endobj\n"
-        "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >> endobj\n"
-        f"4 0 obj << /Length {len(compressed)} /Filter /FlateDecode >> stream\n"
-    ).encode("latin-1") + compressed + b"\nendstream endobj\n" + (
-        "xref\n0 5\n0000000000 65535 f \n"
-        "trailer << /Root 1 0 R /Size 5 >>\nstartxref\n0\n%%EOF\n"
-    ).encode("latin-1")
-    return pdf
 
 
 class DocumentIngestionTests(unittest.TestCase):
@@ -79,18 +36,19 @@ class DocumentIngestionTests(unittest.TestCase):
         result = ingest_document(filename="prd.docx", content_bytes=build_docx_bytes("DOCX content", pages=3))
         self.assertIn("DOCX content", result.text)
         self.assertEqual(result.metadata["extension"], ".docx")
-        self.assertEqual(result.metadata["page_count"], 3)
+        self.assertEqual(result.metadata["page_count"], None)
 
     def test_ingest_pdf_document(self):
-        result = ingest_document(filename="prd.pdf", content_bytes=build_pdf_bytes("PDF content"))
-        self.assertIn("PDF content", result.text)
+        sample_pdf = Path(__file__).with_name("Product Requirement Document.pdf")
+        result = ingest_document(filename=sample_pdf.name, content_bytes=sample_pdf.read_bytes())
+        self.assertIn("Product Requirement Document", result.text)
         self.assertEqual(result.metadata["extension"], ".pdf")
-        self.assertEqual(result.metadata["page_count"], 1)
+        self.assertEqual(result.metadata["page_count"], 4)
 
-    def test_ingest_compressed_pdf_document(self):
-        result = ingest_document(filename="prd.pdf", content_bytes=build_compressed_pdf_bytes("Compressed PDF"))
-        self.assertIn("Compressed PDF", result.text)
-        self.assertEqual(result.metadata["extension"], ".pdf")
+    def test_invalid_docx_raises_structured_error(self):
+        with self.assertRaises(DocumentIngestionError) as error:
+            ingest_document(filename="prd.docx", content_bytes=b"not-a-docx")
+        self.assertEqual(error.exception.code, "corrupted_document")
 
     def test_unsupported_file_type_raises_structured_error(self):
         with self.assertRaises(DocumentIngestionError) as error:

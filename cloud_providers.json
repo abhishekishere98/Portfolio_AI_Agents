@@ -1,0 +1,32 @@
+{
+  "api_key_encryption_secret": "PRD_AGENT_SECRET_V1",
+  "vendors": [
+    {
+      "id": "gemini",
+      "name": "Google Gemini",
+      "models": [
+        {
+          "id": "gemini-1.5-flash",
+          "name": "Gemini 1.5 Flash",
+          "api_key_encrypted": "CqKCpyVQ1-t3H6vf3uRGhc629wnUKGPcvT54jKcrwG1sEaJm41T_sOdl4vefNrC1FAKLvFw8ZgwCapDurJNt-GE36l6yXp6Kl0nm94lmp5EAGtSLUMaq66P5f8PH4-R81TJmKvrlexeXAqP3U9E1NIpEk1gc"
+        },
+        {
+          "id": "gemini-1.5-pro",
+          "name": "Gemini 1.5 Pro",
+          "api_key_encrypted": "_Btvbns9jxxvkY7nD2n9W7IqZWgI_wF_T0HBoX-dbuLirieomnVV_Snzn33vrplMG1MRLrT-1BZ7vT6-h-oZldmqMN63JDD-ePPCGOyPr0kTazJ6xW9p8EYmfX0tUBYvpnZF5tqRRMh0Q2Bt4_Ph4thyrEQN"
+        }
+      ]
+    },
+    {
+      "id": "grok",
+      "name": "Grok (XAI)",
+      "models": [
+        {
+          "id": "grok-2",
+          "name": "Grok 2",
+          "api_key_encrypted": "2vgH1D2Y0RE1hggAtvQXGysQ73pi-i0MSgGEwacpexGvpvT5qoGVYQ_ZTtKXV5pFcRaYlJhpmdb3k_DGU1hzrammzpWZhoNGC9M4_bFRs2hgOqGTtzjG9isRsD-1Xz4jemAxKDoOo-WNGeU_xx-zwom8YDRqtOC9"
+        }
+      ]
+    }
+  ]
+}

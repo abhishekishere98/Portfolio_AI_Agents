@@ -57,23 +57,45 @@ ollama pull qwen3:8b
 
 This downloads the AI model. It may take some time because the file is large.
 
-### Step 3: Start The Agent Server
+### Step 3: Configure Cloud Providers (Encrypted Keys)
 
-If you want cloud Gemini mode, set your key before starting server:
-
-```powershell
-$env:GEMINI_API_KEY = "your_real_gemini_key"
-```
-
-Optional encrypted-key mode (recommended for UI entry):
+Generate encrypted API keys (one time per key):
 
 ```powershell
-$env:API_KEY_ENCRYPTION_SECRET = "your_long_random_secret"
+python encrypt_api_key.py
 ```
 
-In this mode, you paste an encrypted token in the UI field and backend decrypts it at runtime.
+The script is standalone and asks for:
 
-Encrypted token format expected by backend (`encrypted_cloud_api_key`):
+- your plain cloud API key
+- your encryption secret (input hidden)
+
+Copy encrypted output into `cloud_providers.json` (`api_key_encrypted` fields).
+
+Preferred setup (no runtime shell env needed): add the same secret directly in `cloud_providers.json`:
+
+```json
+{
+  "api_key_encryption_secret": "your_long_random_secret",
+  "vendors": [
+    {
+      "id": "gemini",
+      "models": [
+        {
+          "id": "gemini-1.5-flash",
+          "api_key_encrypted": "..."
+        }
+      ]
+    }
+  ]
+}
+```
+
+Optional fallback (legacy): set `API_KEY_ENCRYPTION_SECRET` in shell before starting server.
+
+The UI no longer accepts direct key input. Cloud model options are populated from `cloud_providers.json`.
+
+Encrypted token format expected by backend (`api_key_encrypted` in config):
 
 - Base64 URL-safe encoded bytes (`urlsafe_b64encode`)
 - Binary payload layout:
@@ -85,31 +107,7 @@ Encrypted token format expected by backend (`encrypted_cloud_api_key`):
 - Ciphertext generation: each plaintext byte is XORed with derived key byte and nonce byte (both repeated cyclically)
 - Integrity check: `HMAC_SHA256(derived_key, salt + nonce + ciphertext)` must match `mac`
 
-Reference Python snippet to generate a valid token:
-
-```python
-import base64
-import hashlib
-import hmac
-
-
-def encrypt_api_key(api_key: str, secret: str) -> str:
-    salt = b"0123456789abcdef"  # Use random 16 bytes in production
-    nonce = b"abcdef0123456789"  # Use random 16 bytes in production
-    key = hashlib.pbkdf2_hmac("sha256", secret.encode("utf-8"), salt, 200000, dklen=32)
-    ciphertext = bytes(
-        byte ^ key[index % len(key)] ^ nonce[index % len(nonce)]
-        for index, byte in enumerate(api_key.encode("utf-8"))
-    )
-    mac = hmac.new(key, salt + nonce + ciphertext, hashlib.sha256).digest()
-    payload = salt + nonce + ciphertext + mac
-    return base64.urlsafe_b64encode(payload).decode("utf-8")
-
-
-print(encrypt_api_key("your_real_gemini_key", "your_long_random_secret"))
-```
-
-Run this command:
+### Step 4: Start The Agent Server
 
 ```powershell
 python agent_server.py
@@ -123,7 +121,7 @@ Agent server running at http://localhost:8787
 
 Keep this PowerShell window open. If you close it, the agents will stop working.
 
-### Step 4: Open The Website
+### Step 5: Open The Website
 
 Open this file in your browser:
 
@@ -133,7 +131,7 @@ index.html
 
 Then scroll to the **Agent Lab** section.
 
-### Step 5: Try An Agent
+### Step 6: Try An Agent
 
 1. Click an agent name.
 2. Type your request.
@@ -395,7 +393,7 @@ Simple request:
 If Ollama is not ready yet, use:
 
 ```json
-"use_llm": false
+"use_llm": "false"
 ```
 
 ## Next Step
