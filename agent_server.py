@@ -34,12 +34,15 @@ GROK_TIMEOUT_SECONDS = int(os.environ.get("GROK_TIMEOUT_SECONDS", "900"))
 GROQ_API_BASE = os.environ.get("GROQ_API_BASE", "https://api.groq.com/openai")
 GROQ_API_VERSION = os.environ.get("GROQ_API_VERSION", "v1")
 GROQ_TIMEOUT_SECONDS = int(os.environ.get("GROQ_TIMEOUT_SECONDS", "900"))
+
 GROK_MODEL_ALIASES = {
     "grok-2": "grok-3-mini",
 }
+
 API_KEY_ENCRYPTION_SECRET = os.environ.get("API_KEY_ENCRYPTION_SECRET", "")
 CLOUD_PROVIDERS_CONFIG_PATH = ROOT / os.environ.get("CLOUD_PROVIDERS_CONFIG", "cloud_providers.json")
-PORT = int(os.environ.get("AGENT_PORT", "8787"))
+PORT = int(os.environ.get("PORT", os.environ.get("AGENT_PORT", "8787")))
+
 CONFIG_SECRET_FIELDS = (
     "api_key_encryption_secret",
     "encryption_secret",
@@ -852,7 +855,7 @@ class AgentHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = ThreadingHTTPServer(("localhost", PORT), AgentHandler)
-    print(f"Agent server running at http://localhost:{PORT}")
-    print(f"Ollama endpoint: {OLLAMA_URL} | model: {OLLAMA_MODEL}")
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), AgentHandler)
+    # print(f"Agent server running at http://localhost:{PORT}")
+    # print(f"Ollama endpoint: {OLLAMA_URL} | model: {OLLAMA_MODEL}")
     server.serve_forever()

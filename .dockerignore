@@ -1,0 +1,7 @@
+.git
+.idea
+.junie
+.venv
+__pycache__
+
+docs

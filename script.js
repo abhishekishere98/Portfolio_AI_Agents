@@ -27,6 +27,8 @@ let runtimeCloudModels = [];
 let runtimeProviderOptions = {};
 let latestJsonOutput = "";
 
+const API_BASE = "http://localhost:8080";
+
 const getAgentCapabilities = (agent) => {
   if (!agent || typeof agent !== "object") {
     return {};
@@ -136,7 +138,7 @@ const updateExcelDownloadLink = (payload) => {
     return;
   }
   const filename = typeof excel.filename === "string" && excel.filename.trim() ? excel.filename : "PRD_PRD_Analysis.xlsx";
-  downloadExcelLink.href = `http://localhost:8787${excel.download_url}`;
+  downloadExcelLink.href = `${API_BASE}${excel.download_url}`;
   downloadExcelLink.download = filename;
   downloadExcelLink.classList.remove("is-disabled");
   downloadExcelLink.hidden = false;
@@ -205,7 +207,7 @@ const renderCloudModelOptions = () => {
 
 const loadRuntimeOptions = async () => {
   try {
-    const response = await fetch("http://localhost:8787/api/runtime/options");
+    const response = await fetch(`${API_BASE}/api/runtime/options`);
     if (!response.ok) {
       throw new Error("runtime options unavailable");
     }
@@ -222,7 +224,7 @@ const loadRuntimeOptions = async () => {
 
 const loadAgents = async () => {
   try {
-    const response = await fetch("http://localhost:8787/api/agents");
+    const response = await fetch(`${API_BASE}/api/agents`);
     if (!response.ok) {
       throw new Error("agent list unavailable");
     }
@@ -288,7 +290,7 @@ const runAgent = async () => {
   hideExcelDownload();
 
   try {
-    const response = await fetch("http://localhost:8787/api/agents/run", {
+    const response = await fetch(`${API_BASE}/api/agents/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(await buildRunPayload(prompt, provider, cloudModel))
