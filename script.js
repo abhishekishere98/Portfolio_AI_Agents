@@ -27,7 +27,7 @@ let runtimeCloudModels = [];
 let runtimeProviderOptions = {};
 let latestJsonOutput = "";
 
-const API_BASE = "http://localhost:8080";
+const API_BASE = "https://portfolio-ai-agents.onrender.com";
 
 const getAgentCapabilities = (agent) => {
   if (!agent || typeof agent !== "object") {
